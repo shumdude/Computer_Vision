@@ -90,7 +90,7 @@ class HandDetector():
         length = math.hypot(first_arg, second_arg)
         return length, img, [x1, y1, x2, y2, centerX, centerY]
 
-    def fingers_ip(self, lmList):
+    def fingers_up(self, lmList):
         if self.results.multi_hand_landmarks:
             fingers = []
             for id in range(1, 5):
