@@ -1,60 +1,74 @@
-import cv2
-import numpy as np
+import cv2, time, mouse, numpy
 from HandTrackingModule import HandDetector
-import time, mouse
 
-##########################
-frameR = 150
+#######PARAMETERS#######
+frame_rectangle = 150
 smoothening = 5
-wScr = 1920.0
-hScr = 1080.0
+width_screen = 1920.0
+height_screen = 1080.0
+old_clocX, old_clocY = 0, 0
+clocX, clocY = 0, 0
+width_camera = 640
+height_camera = 480
+click_length = 16
 #########################
 
-pTime = 0
-plocX, plocY = 0, 0
-clocX, clocY = 0, 0
-wCam = 640
-hCam = 480
 cap = cv2.VideoCapture(1)
-cap.set(3, wCam)
-cap.set(4, hCam)
+cap.set(3, width_camera)
+cap.set(4, height_camera)
 detector = HandDetector(min_detection_confidence=0.8, max_hands=1)
-
-recx = wCam - frameR
-recy = hCam - frameR
+rectangleX = width_camera - frame_rectangle
+rectangleY = height_camera - frame_rectangle
 
 while True:
     success, img = cap.read()
     img = cv2.flip(img, 1)
     img = detector.find_hands(img)
-    lmList = detector.find_position(img)
-    if len(lmList) != 0:
-        x1, y1 = lmList[8][0], lmList[8][1]
-        fingers = detector.fingers_up(lmList)
-        cv2.rectangle(img, (frameR, frameR), (wCam - frameR, hCam - frameR),
+    landmark_list = detector.find_position(img)
+    if len(landmark_list) != 0:
+        x1, y1 = landmark_list[8][0], landmark_list[8][1]
+        fingers = detector.fingers_up(landmark_list)
+        cv2.rectangle(img,
+                      (frame_rectangle, frame_rectangle),
+                      (width_camera - frame_rectangle, height_camera - frame_rectangle),
                       (255, 0, 255), 2)
 
+        # Checking the index finger
         if fingers[0] == 1:
-            x3 = np.interp(x1, (frameR, recx), (0, wScr)) - 20
-            y3 = np.interp(y1, (frameR, recy), (0, hScr)) - 20
-            clocX = plocX + (x3 - plocX) / smoothening
-            clocY = plocY + (y3 - plocY) / smoothening
+            x3 = numpy.interp(x1, (frame_rectangle, rectangleX), (0, width_screen)) - 20
+            y3 = numpy.interp(y1, (frame_rectangle, rectangleY), (0, height_screen)) - 20
+            clocX = old_clocX + (x3 - old_clocX) / smoothening
+            clocY = old_clocY + (y3 - old_clocY) / smoothening
 
+            # Move mouse
             mouse.move(clocX, clocY)
 
             cv2.circle(img, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
             length, img, _ = detector.find_distance(4, 5, img, draw=False)
+
+            #  Checking middle finger
             if fingers[1] == 1:
-                length_drag, img, _ = detector.find_distance(8, 12, img, draw=True)
-                if length<15:
+                length_drag, img, landmarks_list = detector.find_distance(12, 8, img, draw=False)
+                cv2.circle(img, (landmarks_list[0], landmarks_list[1]), 15, (255, 0, 255), cv2.FILLED)
+                # Right click
+                if length < click_length:
                     mouse.click('right')
                     time.sleep(0.08)
+
+                # Drag objects
+                if length_drag < 27:
+                    mouse.press()
+                else:
+                    mouse.release()
+
             else:
-                if length<15:
+                # Left click
+                if length < click_length:
                     mouse.click('left')
                     time.sleep(0.08)
-            plocX = clocX
-            plocY = clocY
 
-    cv2.imshow("Image", img)
+            old_clocX = clocX
+            old_clocY = clocY
+
+    cv2.imshow("CursorAI", img)
     cv2.waitKey(1)
